@@ -1,0 +1,29 @@
+{
+  "name": "ss-dl-bot",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "start": "tsc && electron ./compiled"
+  },
+  "dependencies": {
+    "@types/electron": "^1.6.10",
+    "@types/filenamify": "^2.0.2",
+    "@types/jquery": "^3.3.31",
+    "@types/moment": "^2.13.0",
+    "@types/moment-timezone": "^0.5.12",
+    "@types/string-similarity": "^3.0.0",
+    "@types/utf8": "^2.1.6",
+    "electron": "^6.0.12",
+    "electron-storage": "^1.0.7",
+    "filenamify": "^4.1.0",
+    "jquery": "^3.4.1",
+    "moment": "^2.24.0",
+    "moment-timezone": "^0.5.27",
+    "require-uncached": "^2.0.0",
+    "string-similarity": "^3.0.0",
+    "typescript": "^3.6.4",
+    "typings": "^2.1.1",
+    "utf8": "^3.0.0"
+  }
+}
