@@ -59,14 +59,14 @@ app.on('ready', () => {
 
         if (state.currentVideoUrlIndex >= state.currentVideoURLs.length) {
             scanNextVideosPage();
+        } else {
+            win.loadURL(state.currentVideoURLs[state.currentVideoUrlIndex]);
         }
-
-        win.loadURL(state.currentVideoURLs[state.currentVideoUrlIndex]);
     };
 
     // PAGE STATE HANDLING
     
-    ipcMain.on('pageLoaded', (e: any, location: Location, se: any) => {
+    ipcMain.on('pageLoaded', (e: any, location: Location) => {
         if (location.pathname === Page.LOGIN_PAGE) { // ON LOGIN PAGE
             win.webContents.send('authenticate', settings);
 
