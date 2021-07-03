@@ -1,157 +1,67 @@
-import { app, BrowserWindow, ipcMain, Event } from 'electron';
+import { app, BrowserWindow } from 'electron';
 import * as path from 'path';
-import * as fs from 'fs';
-import * as filenamify from 'filenamify';
+import * as Page from './consts/pages';
+import { $regWindow, navigate, onPanicCleanup, regEvent } from './utils';
+import { PageStructureError, PageStructureWarning } from './consts/events';
+import { main } from './main';
+import { session } from './session';
 
-import settings from './settings';
-import database from './entities/database';
-import * as Page from './pages';
-import { VideoMeta } from 'entities/VideoEntry';
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
-const URL = 'https://www.sperma-studio.com';
-
-database.load();
-
-app.on('ready', () => {
+app.on('ready', async () => {
     const win = new BrowserWindow({
         width: 1366,
         height: 768,
         webPreferences: {
             nodeIntegration: true,
-            preload: path.join(__dirname, 'injection.js')
+            preload: path.join(__dirname, '$injection/index.js')
         }
     });
-
-    win.loadURL(URL + Page.LOGIN_PAGE);
 
     win.setMenu(null);
 
-    win.webContents.openDevTools();
+    if (process.argv.indexOf('--dev-tools') > 0) {
+        win.webContents.openDevTools();
+    }
 
-    // STATE
+    if (!(process.argv.indexOf('--unmute') > 0)) {
+        win.webContents.setAudioMuted(true);
+    }
 
-    const state = {
-        
-    } as {
-        pagesAmount?: number;
-        currentPage?: number;
-        currentVideoURLs?: string[];
-        currentVideoUrlIndex?: number;
-    };
+    win.on('close', () => {
+        process.exit();
+    });
 
-    // PATH METHODS
+    win.on('close', onPanicCleanup);
+    process.on('beforeExit', onPanicCleanup);
+    process.on('exit', onPanicCleanup);
+    // process.on('SIGKILL', onPanicCleanup);
+    process.on('SIGTERM', onPanicCleanup);
 
-    const scanNextVideosPage = (noDecrementPage: boolean = false) => {
-        if (!!!state.currentPage || state.currentPage <= 1) return; // TODO: Done.
+    $regWindow(win);
 
-        if (!noDecrementPage) state.currentPage -= 1;
-        
-        win.loadURL(URL + Page.getVideosPagePathname(state.currentPage));
-    };
-
-    const scanNextVideoPage = (noIncrementIndex: boolean = false) => {
-        if (!Array.isArray(state.currentVideoURLs) || state.currentVideoURLs.length <= 0) return;
-        if (state.currentVideoUrlIndex === undefined || state.currentVideoUrlIndex < 0) {
-            state.currentVideoUrlIndex = 0;
-        }
-
-        if (!noIncrementIndex) state.currentVideoUrlIndex += 1;
-
-        if (state.currentVideoUrlIndex >= state.currentVideoURLs.length) {
-            scanNextVideosPage();
-        } else {
-            win.loadURL(state.currentVideoURLs[state.currentVideoUrlIndex]);
-        }
-    };
-
-    // PAGE STATE HANDLING
-    
-    ipcMain.on('pageLoaded', (e: any, location: Location) => {
-        if (location.pathname === Page.LOGIN_PAGE) { // ON LOGIN PAGE
-            win.webContents.send('authenticate', settings);
-
-        } else if(location.pathname === Page.SELECT_YOUR_PAGE || location.pathname === Page.WELCOME_PAGE) { // ON "AFTER LOGIN / WELCOME" PAGE
-            win.loadURL(URL + Page.ALL_VIDEOS);
-
-        } else if(location.pathname === Page.ALL_VIDEOS) { // ON ALL VIDEOS PAGE
-            requestVideoPagesAmount(win).then((pagesAmount: number) => {
-                state.pagesAmount = pagesAmount;
-                state.currentPage = pagesAmount;
-
-                scanNextVideosPage(true);
-            }).catch((errorMessage: string) => {
-                console.error(errorMessage);
-                app.exit(1);
-            });
-
-        } else if(Page.getVideosPageByPathname(location.pathname)) { // ON SPECIFIC VIDEOS PAGE
-            requestCurrentVideosPageScan(win, state.currentPage!).then((videoURLs: string[]) => {
-                if (videoURLs.length > 0) {
-                    state.currentVideoURLs = videoURLs;
-                    state.currentVideoUrlIndex = 0;
-
-                    scanNextVideoPage(true);
-                } else {
-                    scanNextVideosPage();
-                }
-            }).catch((errorMessage: string) => {
-                console.error(errorMessage);
-                scanNextVideosPage();
-            });
-
-        } else if (state.currentVideoUrlIndex !== undefined) { // ON SPECIFIC VIDEO PAGE
-            requestCurrentVideoPageScan(win).then((scan: VideoMeta) => {
-                console.log('Video page scan: ', scan);
-                scanNextVideoPage();
-            }).catch((errorMessage: string) => {
-                console.error(errorMessage);
-                scanNextVideoPage();
-            });
-
-        } else { // ON UNKNOWN PAGE
-            console.log('Unknown location: ', location);
+    session.addEventListener('login', async () => {
+        try {
+            await main(win);
+        } catch (err) {
+            console.error('Error: ', err);
+            // onPanicCleanup();
+            process.exit(-2);
         }
     });
+
+    session.addEventListener('logout', () => {
+        navigate(Page.Login);
+    });
+
+    await navigate(Page.Login);
 });
 
-function requestVideoPagesAmount(win: BrowserWindow): Promise<number> {
-    return new Promise((resolve: Function, reject: Function) => {
-        ipcMain.once('receiveVideoPagesAmount', (e: any, pagesAmount: number) => {
-            resolve(pagesAmount);
-        });
+regEvent(PageStructureError, message => {
+    console.error(`PageStructureError: ${message}. Code update required!`);
+    process.exit(-1);
+});
 
-        ipcMain.once('errorGettingVideoPagesAmount', (e: any, errorMessage: string) => {
-            reject(errorMessage);
-        });
-
-        win.webContents.send('sendVideoPagesAmount');
-    });
-}
-
-function requestCurrentVideosPageScan(win: BrowserWindow, currentPage: number): Promise<string[]> {
-    return new Promise((resolve: Function, reject: Function) => {
-        ipcMain.once('receiveCurrentVideosPageScan', (e: any, videoURLs: string[]) => {
-            resolve(videoURLs);
-        });
-
-        ipcMain.once('errorGettingCurrentVideosPageScan', (e: any, errorMessage: string) => {
-            reject(errorMessage);
-        });
-
-        win.webContents.send('sendCurrentVideosPageScan', currentPage);
-    });
-}
-
-function requestCurrentVideoPageScan(win: BrowserWindow): Promise<VideoMeta> {
-    return new Promise((resolve: Function, reject: Function) => {
-        ipcMain.once('receiveCurrentVideoPageScan', (e: any, scan: VideoMeta) => {
-            resolve(scan);
-        });
-
-        ipcMain.once('errorGettingCurrentVideoPageScan', (e: any, errorMessage: string) => {
-            reject(errorMessage);
-        });
-
-        win.webContents.send('sendCurrentVideoPageScan');
-    });
-}
+regEvent(PageStructureWarning, message => {
+    console.warn(`PageStructureWarning: ${message}. Code update required!`);
+});

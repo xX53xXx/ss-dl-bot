@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-export interface ISettings {
+export interface Settings {
     // Sperma-Studio.com credentials (for prefilled login form, you still have to solve capture and login)
     // IMPORTANT: You can store your credentials also in "account.json", this file is ignored by git and will not be pushed
     username?: string; // Optional
@@ -16,7 +16,9 @@ export interface ISettings {
     databaseLocation: string; // Required
 }
 
-const accountFilePath = path.normalize(path.join(__dirname, '..', 'account.json'));
+export const rootDir = path.join(__dirname, '..', '..');
+
+const accountFilePath = path.normalize(path.join(rootDir, 'account.json'));
 let userCredentials: any = {};
 
 if (fs.existsSync(accountFilePath)) {
@@ -27,6 +29,6 @@ export default {
     username: userCredentials.username,
     password: userCredentials.password,
 
-    downloadLocation: path.normalize(path.join(__dirname, '..', 'out')),
-    databaseLocation: 'db.json'
-} as ISettings;
+    downloadLocation: path.normalize(path.join(rootDir, 'out')),
+    databaseLocation: path.normalize(path.join(rootDir, 'out', 'db.json'))
+} as Settings;
