@@ -16,6 +16,6 @@ export interface VideoDetails {
 export interface VideoDetailsEntry extends VideoDetails {
     filename: string;
     listEntryData: ListEntry;
-    status: 'TODO' | 'DONE' | 'ERROR';
+    status: 'TODO' | 'DONE' | 'ERROR' | 'MOVED' | 'NO-DOWNLOADS' | 'PAGE-BROKEN';
     lastStatusUpdate: Date;
 }

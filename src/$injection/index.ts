@@ -139,11 +139,18 @@ regEvent(ScanVideoPage, () => {
         const movedEm = document.querySelectorAll('section.entry-content > blockquote > p');
 
         if (!movedEm) {
-            // sendEvent(PageStructureError, pageStructureChangedText);
-            return;
+            const live = document.querySelector('#live');
+
+            if (!live) {
+                sendEvent(ScanVideoPage, 'broken');
+                sendEvent(PageStructureWarning, pageStructureChangedText);
+            } else {
+                sendEvent(ScanVideoPage, 'no-download-links');
+            }
+        } else {
+            sendEvent(ScanVideoPage, 'moved');
         }
 
-        sendEvent(ScanVideoPage, 'moved');
         return;
     }
 

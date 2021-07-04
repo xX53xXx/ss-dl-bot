@@ -43,8 +43,9 @@ export async function postRequest<PageName extends keyof Params>(pageName: PageN
 export function isAuthenticated(): boolean {
     const lbtn1Vis = !!document.querySelector('#menu-7574-particle > nav > ul > li.g-menu-item.g-menu-item-69799.g-menu-item-type-custom.g-standard.menu-item.menu-item-69799.menu-item-object-custom.menu-item-type-custom > a > span > span');
     const lbtn2Vis = !!document.querySelector('#g-mobilemenu-container > ul > li.g-menu-item.g-menu-item-type-custom.g-menu-item-69799.g-standard.menu-item.menu-item-type-custom.menu-item-object-custom.menu-item-69799 > a');
+    const lbtn3Vis = !!document.querySelector('.am-user-identity-block_login');
 
-    return lbtn1Vis || lbtn2Vis;
+    return lbtn1Vis || lbtn2Vis || lbtn3Vis;
 }
 
 export function sendIsAuthenticated(authenticated: boolean) {

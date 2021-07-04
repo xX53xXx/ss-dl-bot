@@ -27,7 +27,7 @@ export type EventResponseParams = {
     [Navigate]: NavigationResponse;
     [Authenticated]: boolean;
     [ScanPage]: ReadonlyArray<ListEntry> | false;
-    [ScanVideoPage]: VideoDetails | false | 'moved';
+    [ScanVideoPage]: VideoDetails | false | 'moved' | 'no-download-links' | 'broken';
 
 
     [PageStructureError]: string;

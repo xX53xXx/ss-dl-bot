@@ -97,20 +97,13 @@ export async function navigate<PageName extends keyof Params>(page: PageName | s
 
     url += (args ? '?' + toQueryArgs(args) : '');
 
-    try {
-        const rsp = await Promise.all([
-            new Promise<NavigationResponse>((resolve, _) => {
-                regEventOnce(Navigate, rsp => {
-                    resolve(rsp);
-                });
-            }),
-            useWindow().loadURL(url)
-        ]);
+    return new Promise((resolve) => {
+        regEventOnce(Navigate, rsp => {
+            resolve(rsp);
+        });
 
-        return rsp[0];
-    } catch (error) {
-        throw error;
-    }
+        useWindow().loadURL(url);
+    });
 }
 
 let _onPanicCleanups: Function[] = [];
@@ -161,118 +154,6 @@ export async function scanPage(page: number) {
     return await callEvent(ScanPage);
 }
 
-export async function downloadVideo(entry: ListEntry) {
-    const dbEntry = await getEntryByUrl(entry.url);
-
-    const redownloadDone = (process.argv.indexOf('--redownload-done') > 0);
-    const ignoreBroken = (process.argv.indexOf('--ignore-broken') > 0);
-
-    if (dbEntry?.status === 'DONE' && !redownloadDone) {
-        console.log(`Skipped "${dbEntry.filename}"`);
-        return;
-    } else if (dbEntry?.status === 'ERROR' && ignoreBroken) {
-        console.log(`Skipped broken "${dbEntry.filename}"`);
-        return;
-    }
-
-    const settings = await useSettings();
-    await navigate(entry.url);
-    const videoDetailsData = await callEvent(ScanVideoPage);
-
-    if (!videoDetailsData) {
-        console.warn('No video data for: ', entry.name);
-        return;
-    }
-
-    if (videoDetailsData === 'moved') {
-        console.warn('Video has been moved: ', entry.name);
-        return;
-    }
-
-    const bestUrl = ((urls) => {
-        let _bestUrl: DownloadLink | undefined = undefined;
-        let sz: number = 0;
-
-        let idx = 0;
-        for (const url of urls) {
-            let size = /(\d+)x(\d+)/i.exec(url.name);
-
-            if (!size) {
-                size = /(\d+)\.mp4$/i.exec(url.name);
-
-                if (!size) {
-                    console.warn('Unable to calculte size for ', url.name, url.link);
-                    if (idx <= 0) {
-                        _bestUrl = undefined;
-                        break;
-                    }
-                } else {
-                    size = [size[0], '0', size[1]] as RegExpExecArray;
-                }
-            }
-
-            if (size) {
-                // const w = parseInt(size[1], 10);
-                const h = parseInt(size[2], 10);
-
-                const _sz = h;
-
-                if (sz < _sz) {
-                    _bestUrl = url;
-                    sz = _sz;
-                }
-            }
-
-            idx++;
-        }
-
-        return _bestUrl;
-    })(videoDetailsData.downloadLinks.reverse());
-
-    if (!bestUrl) {
-        console.warn('No best url for video: ', videoDetailsData);
-        return;
-    }
-
-    let fileName = filenamify((videoDetailsData.tags.map((tag) => tag.replace(/ /g, '-')).join(' ') + ' ' + videoDetailsData.title || '').replace(/&amp;/g, '&').trim());
-    let nr = 0;
-
-    while ((!fileName.length && !nr) || existsSync(path.join(settings.downloadLocation, fileName + (nr > 0 ? ' #' + nr : '') + '.mp4'))) {
-        nr++;
-    }
-
-    fileName = (fileName + (nr > 0 ? ' #' + nr : '') + '.mp4').trim();
-
-    const vidEntry: VideoDetailsEntry = {
-        ...dbEntry,
-        ...videoDetailsData,
-        listEntryData: entry,
-        filename: fileName,
-        lastStatusUpdate: new Date(),
-        status: 'TODO',
-    };
-
-    await setEntry(vidEntry);
-
-    await waitForInternet();
-
-    try { 
-        await downloadFile(bestUrl.link, {
-            directory: settings.downloadLocation,
-            filename: fileName,
-        });
-
-        vidEntry.status = 'DONE';
-        process.stdout.write(`Done downloading "${vidEntry.filename}"                                                                                                      \r\n`);
-    } catch (ex) {
-        vidEntry.status = 'ERROR';
-        console.error(`Download error for file "${fileName}": `, vidEntry.title || vidEntry.filename, bestUrl.name, bestUrl.link);
-    } finally {
-        vidEntry.lastStatusUpdate = new Date();
-        await setEntry(vidEntry);
-    }
-}
-
 interface DownloadFileOptions {
     filename: string;
     directory: string;
@@ -281,14 +162,13 @@ interface DownloadFileOptions {
 export const downloadFile = async (url: string, {filename, directory}: DownloadFileOptions) => {
     const win = useWindow();
 
-    const rsp = await new Promise((resolve, reject) => {
+    const rsp = await (new Promise((resolve, reject) => {
         win.webContents.session.once('will-download', (event, item, webContents) => {
             const filePath = path.join(directory, filename);
             item.setSavePath(filePath);
 
             let lastProgressPercent = 0.0;
             let loopCounter = 0;
-            let cancelledOnPurpose = false;
 
             const totalBytes = item.getTotalBytes();
 
@@ -317,7 +197,7 @@ export const downloadFile = async (url: string, {filename, directory}: DownloadF
             });
 
             item.once('done', (e, state) => {
-                if (state === 'completed' || cancelledOnPurpose) {
+                if (state === 'completed') {
                     resolve(undefined);
                 } else {
                     reject(state);
@@ -326,7 +206,7 @@ export const downloadFile = async (url: string, {filename, directory}: DownloadF
         });
 
         win.webContents.downloadURL(url);
-    });
+    }));
 
     win.webContents.session.removeAllListeners('will-download');
 

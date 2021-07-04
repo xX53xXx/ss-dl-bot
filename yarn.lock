@@ -470,10 +470,10 @@ electron@*:
     "@types/node" "^14.6.2"
     extract-zip "^1.0.3"
 
-electron@^13.0.1:
-  version "13.1.5"
-  resolved "https://registry.yarnpkg.com/electron/-/electron-13.1.5.tgz#faa6127ac3428ec12c14779a6fe0a89b150ce614"
-  integrity sha512-ZoMCcPQNs/zO/Zdb5hq5H+rwRaKrdI3/sfXEwBVMx7f5jwa9jPQB3dZ2+7t59uD9VcFAWsH/pozr8nPPlv0tyw==
+electron@beta:
+  version "14.0.0-beta.11"
+  resolved "https://registry.yarnpkg.com/electron/-/electron-14.0.0-beta.11.tgz#9483efc4d98331b264729dde2335bec97ac1497d"
+  integrity sha512-1ESp7ahbNtWSuhMy4lbW+Wh4Wt5WLt7iznjrHS5H4eriqo0fyYg0j8zFd5nA1nMi27/89maBISnsksg7ih1urg==
   dependencies:
     "@electron/get" "^1.0.1"
     "@types/node" "^14.6.2"
