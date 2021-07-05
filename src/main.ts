@@ -1,15 +1,26 @@
 import { BrowserWindow } from 'electron/main';
 import { mkdirSync, existsSync } from 'fs';
-import { scanPage, useSettings, writeJsonFile, readJsonFile, navigate, callEvent, waitForInternet, downloadFile } from './utils';
+import { scanPage, useSettings, writeJsonFile, readJsonFile, navigate, callEvent, waitForInternet, downloadFile, downloadStream } from './utils';
 import { ListEntry } from './entities/ListEntry';
 import { rootDir } from './entities/Settings';
 import { useDatabase } from './db';
 import path from 'path';
 import { ScanVideoPage } from './consts/events';
-import { DownloadLink, VideoDetailsEntry } from './entities/VideoDetails';
+import { DownloadLink, VideoDetailsEntry, VideoDetails } from './entities/VideoDetails';
 import filenamify from 'filenamify';
 import { getEntryByUrl, setEntry } from './db';
 import { session } from './session';
+import { URL } from './consts';
+import { sync as commandExists } from 'command-exists';
+import { spawnSync } from 'child_process';
+import { unlinkSync } from 'original-fs';
+
+let forceStreamDownloads: ReadonlyArray<string> = [];
+
+type CachedVideosList<TTS = string> = {
+    ts: TTS;
+    data: Array<ListEntry>;
+};
 
 export async function main(win: BrowserWindow) {
     const settings = await useSettings();
@@ -19,8 +30,11 @@ export async function main(win: BrowserWindow) {
 
     mkdirSync(settings.downloadLocation, { recursive: true });
 
+    forceStreamDownloads = (await readJsonFile<typeof forceStreamDownloads>(path.join(rootDir, 'forceStreamDownloads.json'))).map((uri) => URL + uri);
+
     let lastPage = 1;
-    const entries: Array<ListEntry> = await readJsonFile<Array<ListEntry>>(path.join(rootDir, 'cachedEntriesList.json'));
+    const cachedEntries = await readJsonFile<CachedVideosList>(path.join(rootDir, 'cachedEntriesList.json'), {ts: '2000-01-01', data: []});
+    const entries: Array<ListEntry> = (new Date().getTime() - new Date(cachedEntries.ts).getTime()) > (1000 * 60 * 60 * 12) /* 12h */ ? [] : cachedEntries.data;
 
     if (entries.length <= 0) {
         do {
@@ -37,7 +51,10 @@ export async function main(win: BrowserWindow) {
 
         entries.reverse();
         
-        await writeJsonFile(path.join(rootDir, 'cachedEntriesList.json'), entries, true);
+        await writeJsonFile(path.join(rootDir, 'cachedEntriesList.json'), {
+            ts: new Date(),
+            data: entries
+        }, true);
     }
 
     for (const entry of entries) {
@@ -103,15 +120,77 @@ export async function downloadVideo(entry: ListEntry) {
         vidEntry.lastStatusUpdate = new Date();
         await setEntry(vidEntry);
         return;
-    } else if (videoDetailsData === 'no-download-links') {
-        console.warn('Video has no download links: ', entry.name, entry.url);
-        vidEntry.status = 'NO-DOWNLOADS';
+    }  else if (videoDetailsData === 'broken') {
+        console.warn('Page structure is broken: ', entry.name, entry.url);
+        vidEntry.status = 'PAGE-BROKEN';
         vidEntry.lastStatusUpdate = new Date();
         await setEntry(vidEntry);
         return;
-    } else if (videoDetailsData === 'broken') {
-        console.warn('Page structure is broken: ', entry.name, entry.url);
-        vidEntry.status = 'PAGE-BROKEN';
+    }
+    
+     let fileName = filenamify((videoDetailsData.tags.map((tag) => tag.replace(/ /g, '-')).join(' ') + ' ' + videoDetailsData.title || '').replace(/&amp;/g, '&').trim());
+    let nr = 0;
+
+    /* while ((!fileName.length && !nr) || existsSync(path.join(settings.downloadLocation, fileName + (nr > 0 ? ' #' + nr : '') + '.mp4'))) {
+        nr++;
+    } */
+
+    fileName = (fileName + (nr > 0 ? ' #' + nr : '') + '.mp4').trim();
+
+    vidEntry = {
+        ...vidEntry,
+        ...videoDetailsData,
+        filename: fileName
+    };
+
+    const mp4Exists = existsSync(path.join(settings.downloadLocation, fileName));
+    const tsExists = existsSync(path.join(settings.downloadLocation, fileName.substr(0, fileName.lastIndexOf('.')) + '.ts'));
+
+    if (mp4Exists || tsExists) {
+        if (tsExists) {
+            vidEntry.filename = path.join(settings.downloadLocation, fileName.substr(0, fileName.lastIndexOf('.')) + '.ts');
+        }
+
+        vidEntry.status = 'DONE';
+        await setEntry(vidEntry);
+        return;
+    }
+    
+    const downloadAsStream = async (videoDetailsData: VideoDetails) => {
+        if (!videoDetailsData.streamManifestUrl) throw new Error('Stream manifest url must be set!');
+
+        try {
+            const streamDownloadPath = path.join(settings.downloadLocation, fileName.substr(0, fileName.lastIndexOf('.')) + '.ts');
+            await downloadStream(videoDetailsData.streamManifestUrl, streamDownloadPath);
+
+            if (commandExists('ffmpeg')) {
+                const streamDownloadPathConverted = path.join(settings.downloadLocation, fileName);
+
+                spawnSync(`ffmpeg -i "${streamDownloadPath}" -c copy "${streamDownloadPathConverted}"`);
+
+                if (existsSync(streamDownloadPathConverted)) {
+                    unlinkSync(streamDownloadPath);
+                }
+            }
+
+            return true;
+        } catch {
+            return false;
+        }
+    };
+    
+    if (videoDetailsData.downloadLinks.length <= 0 || forceStreamDownloads.indexOf(entry.url) >= 0) {
+        if (videoDetailsData.streamManifestUrl) {
+            if (await downloadAsStream(videoDetailsData)) {
+                vidEntry.status = 'DONE';
+            } else {
+                vidEntry.status = 'ERROR';
+                console.error(`Download error for file "${fileName}": `, vidEntry.title || vidEntry.filename, entry.url);
+            }
+        } else {
+            vidEntry.status = 'NO-DOWNLOADS';
+        }
+
         vidEntry.lastStatusUpdate = new Date();
         await setEntry(vidEntry);
         return;
@@ -162,21 +241,6 @@ export async function downloadVideo(entry: ListEntry) {
         return;
     }
 
-    let fileName = filenamify((videoDetailsData.tags.map((tag) => tag.replace(/ /g, '-')).join(' ') + ' ' + videoDetailsData.title || '').replace(/&amp;/g, '&').trim());
-    let nr = 0;
-
-    while ((!fileName.length && !nr) || existsSync(path.join(settings.downloadLocation, fileName + (nr > 0 ? ' #' + nr : '') + '.mp4'))) {
-        nr++;
-    }
-
-    fileName = (fileName + (nr > 0 ? ' #' + nr : '') + '.mp4').trim();
-
-    vidEntry = {
-        ...vidEntry,
-        ...videoDetailsData,
-        filename: fileName
-    };
-
     await waitForInternet();
 
     try { 
@@ -188,8 +252,12 @@ export async function downloadVideo(entry: ListEntry) {
         vidEntry.status = 'DONE';
         process.stdout.write(`Done downloading "${vidEntry.filename}"                                                                                                      \r\n`);
     } catch (ex) {
-        vidEntry.status = 'ERROR';
-        console.error(`Download error for file "${fileName}": `, vidEntry.title || vidEntry.filename, bestUrl.name, bestUrl.link);
+        if (await downloadAsStream(videoDetailsData)) {
+            vidEntry.status = 'DONE';
+        } else {
+            vidEntry.status = 'ERROR';
+            console.error(`Download error for file "${fileName}": `, vidEntry.title || vidEntry.filename, entry.url);
+        }
     } finally {
         vidEntry.lastStatusUpdate = new Date();
         await setEntry(vidEntry);

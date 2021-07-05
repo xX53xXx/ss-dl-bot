@@ -11,6 +11,7 @@ export interface VideoDetails {
     category?: string;
     tags: Array<string>;
     downloadLinks: Array<DownloadLink>;
+    streamManifestUrl?: string;
 }
 
 export interface VideoDetailsEntry extends VideoDetails {

@@ -1,5 +1,5 @@
 import { BrowserWindow, ipcMain, Event } from 'electron';
-import { readFileSync, writeFileSync, existsSync, PathLike } from 'fs';
+import { readFileSync, writeFileSync, existsSync, PathLike, openSync, writeSync, closeSync } from 'fs';
 import ping from 'ping';
 import { stringify as toQueryArgs } from 'querystring';
 import { URL } from '../consts';
@@ -15,14 +15,14 @@ import {
 import config, { Settings } from '../entities/Settings';
 import * as Page from '../consts/pages';
 import * as path from 'path';
-import { ListEntry } from '../entities/ListEntry';
-import { ScanVideoPage } from '../consts/events';
-import { DownloadLink, VideoDetailsEntry } from '../entities/VideoDetails';
-import filenamify from 'filenamify';
-import { getEntryByUrl, setEntry } from '../db';
+import axios from 'axios';
 
-export async function readJsonFile<T>(filePath: PathLike): Promise<T> {
+export async function readJsonFile<T>(filePath: PathLike, defaultFallback?: T): Promise<T> {
     if (!existsSync(filePath)) {
+        if (defaultFallback !== undefined) {
+            return defaultFallback;
+        }
+
         throw new Error(`JSON file "${filePath}" not found.`);
     }
 
@@ -185,7 +185,7 @@ export const downloadFile = async (url: string, {filename, directory}: DownloadF
                         process.stdout.write(`Downloading ${loopCounter > 0 ? '#' + loopCounter + ' ' : ''}"${filename}": ${Math.round(percentage * 100)} %, ${receivedBytes} / ${totalBytes}                                                                                                      \r`);
                     }
 
-                    if (loopCounter > 3) {
+                    if (loopCounter > 1) {
                         item.pause();
                         item.cancel();
                     }
@@ -211,4 +211,120 @@ export const downloadFile = async (url: string, {filename, directory}: DownloadF
     win.webContents.session.removeAllListeners('will-download');
 
     return rsp;
+};
+
+type Pos = { x: number; y: number; };
+
+export const makeClick = async (position: 'center' | Pos = 'center', button: 'left' | 'middle' | 'right' = 'left') => {
+    const win = useWindow();
+
+    let maximize = false;
+    if (win.isMaximized()) {
+        win.unmaximize();
+        maximize = true;
+    }
+
+    const winSize = win.getSize();
+
+    const xy: Pos = position === 'center' ? {
+        x: winSize[0] * 0.5,
+        y: winSize[1] * 0.5,
+    } : position as Pos;
+
+    win.webContents.sendInputEvent({
+        type: 'mouseDown',
+        ...xy,
+        button
+    });
+
+    await new Promise((r) => setTimeout(r, 16));
+
+    win.webContents.sendInputEvent({
+        type: 'mouseUp',
+        ...xy,
+        button
+    });
+
+    if (maximize) {
+        win.maximize();
+    }
+}
+
+const getManifestBaseUrl = (streamManifestUrl: string) => streamManifestUrl.substr(0, streamManifestUrl.lastIndexOf('/'));
+
+const getBestStreamManifest = async (streamManifestUrl: string) => {
+    const manifest = (await axios.get(streamManifestUrl)).data.split(`\n`);
+    
+    let best_m3u = '';
+    let best_height = 0;
+
+    let use_next_m3u = false;
+
+    for (const line of manifest) {
+        const mt = /,RESOLUTION=(\d+)x(\d+)/g.exec(line);
+        
+        if (mt) {
+            const h = parseInt(mt[2], 10);
+
+            if (h > best_height) {
+                best_height = h;
+                use_next_m3u = true;
+            }
+        } else if (use_next_m3u) {
+            best_m3u = line;
+            use_next_m3u = false;
+        }
+    }
+
+    if (!best_m3u) {
+        for (const line of manifest.reverse()) {
+            const ln = line.trim();
+
+            if (ln.length > 0 && !ln.startsWith('#')) {
+                return ln;
+            }
+        }
+    }
+
+    if (!best_m3u) {
+        throw new Error('No best m3u8 file name found in manifest: ' + `\n` + manifest.join(`\n`));
+    }
+
+    return best_m3u.trim();
+};
+
+export const downloadStream = async (streamManifestUrl: string, filePath: string) => {
+    const baseUrl = getManifestBaseUrl(streamManifestUrl);
+    const bestManifest = await getBestStreamManifest(streamManifestUrl);
+    const streamParts = (await axios.get(baseUrl + '/' + bestManifest)).data.split(`\n`).filter((ln: string) => !ln.startsWith('#')).map((ln: string) => baseUrl + '/' + ln);
+
+    while (!streamParts[streamParts.length - 1].endsWith('.ts')) {
+        streamParts.pop();
+    }
+
+    const fh = openSync(filePath, 'ax');
+
+    const partsCount = streamParts.length;
+    let downloadedParts = 0;
+    let writtenParts = 0;
+
+    do {
+        const data = (await Promise.all(streamParts.splice(0, 64).map((partUrl: string) => new Promise(async (resolve) => {
+            await waitForInternet();
+            const data = await axios.get(partUrl, { responseType: 'arraybuffer' });
+            downloadedParts++;
+            process.stdout.write(`Downloading stream: ${Math.round(downloadedParts / partsCount * 100)} % ${downloadedParts} / ${partsCount}                                                                                                     \r`);
+            resolve(data.data);
+        })))) as Buffer[];
+
+        for (const entry of data) {
+            writtenParts++;
+            process.stdout.write(`Writing stream: ${Math.round(writtenParts / downloadedParts * 100)} % ${writtenParts} / ${downloadedParts}                                                                                                     \r`);
+            writeSync(fh, new Uint8Array(entry));
+        }
+    } while (streamParts.length > 0);
+
+    closeSync(fh);
+
+    process.stdout.write(`Download stream done "${filePath}"                                                                                                                                                   \r\n`);
 };

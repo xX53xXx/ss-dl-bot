@@ -8,6 +8,7 @@ export const Navigate = 'navigate';
 export const Authenticated = 'authenticated';
 export const ScanPage = 'scan-page';
 export const ScanVideoPage = 'scan-video-page';
+export const StartVideoStream = 'start-video-stream';
 
 export type NavigationResponse = {
     location: Location;
@@ -27,7 +28,8 @@ export type EventResponseParams = {
     [Navigate]: NavigationResponse;
     [Authenticated]: boolean;
     [ScanPage]: ReadonlyArray<ListEntry> | false;
-    [ScanVideoPage]: VideoDetails | false | 'moved' | 'no-download-links' | 'broken';
+    [ScanVideoPage]: VideoDetails | false | 'moved' | 'broken';
+    [StartVideoStream]: string;
 
 
     [PageStructureError]: string;

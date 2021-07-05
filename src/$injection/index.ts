@@ -6,7 +6,7 @@ import {
 } from './utils';
 import * as Page from '../consts/pages';
 import { 
-    Navigate, PageStructureError, PageStructureWarning, ScanPage, ScanVideoPage,
+    Navigate, PageStructureError, PageStructureWarning, ScanPage, ScanVideoPage, StartVideoStream,
 } from '../consts/events';
 import { regEvent } from './utils';
 import { useSettings } from '../utils';
@@ -133,25 +133,24 @@ regEvent(ScanVideoPage, () => {
     const tagsEmArray = document.querySelectorAll<HTMLSpanElement>('section.entry-header > div.entry-meta > div.meta-tags > span.tags > span');
     const downloadLinkEmArray = document.querySelectorAll<HTMLAnchorElement>('section.entry-content ul > li a');
 
+    // jwplayer("live").setup({ file: "https://5a539c4579457.streamlock.net:4443/vod/_definst_/lucky/smil:spermastudio_069_2012.smil/hls-manifest.m3u8", autostart: "false", androidhls: "true", type: "hls"
+    const streamManifestUrlMatch = /jwplayer\(\"live\"\)\.setup\(\{ file\: \"(.+?)\",/ig.exec(document.body.innerHTML);
+
     const pageStructureChangedText = 'Page html structure of detailed video page has possibly changed.';
 
     if (!downloadLinkEmArray?.length) {
         const movedEm = document.querySelectorAll('section.entry-content > blockquote > p');
 
-        if (!movedEm) {
-            const live = document.querySelector('#live');
-
-            if (!live) {
-                sendEvent(ScanVideoPage, 'broken');
+        if (streamManifestUrlMatch || !movedEm) {
+            if (!streamManifestUrlMatch) {
                 sendEvent(PageStructureWarning, pageStructureChangedText);
-            } else {
-                sendEvent(ScanVideoPage, 'no-download-links');
+                sendEvent(ScanVideoPage, 'broken');
+                return;
             }
         } else {
             sendEvent(ScanVideoPage, 'moved');
+            return;
         }
-
-        return;
     }
 
     if (!videoTitleEm || !publishedEm || !categoryEm || !tagsEmArray?.length) {
@@ -177,7 +176,8 @@ regEvent(ScanVideoPage, () => {
         published: publishedEm?.innerHTML.trim(),
         category: categoryEm?.innerHTML.trim(),
         tags,
-        downloadLinks
+        downloadLinks,
+        streamManifestUrl: streamManifestUrlMatch ? streamManifestUrlMatch[1].trim() : undefined
     };
 
     sendEvent(ScanVideoPage, data);
