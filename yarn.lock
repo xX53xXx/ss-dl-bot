@@ -57,14 +57,14 @@
     filenamify "*"
 
 "@types/node@^14.6.2":
-  version "14.17.4"
-  resolved "https://registry.yarnpkg.com/@types/node/-/node-14.17.4.tgz#218712242446fc868d0e007af29a4408c7765bc0"
-  integrity sha512-8kQ3+wKGRNN0ghtEn7EGps/B8CzuBz1nXZEIGGLP2GnwbqYn4dbTs7k+VKLTq1HvZLRCIDtN3Snx1Ege8B7L5A==
+  version "14.17.5"
+  resolved "https://registry.yarnpkg.com/@types/node/-/node-14.17.5.tgz#b59daf6a7ffa461b5648456ca59050ba8e40ed54"
+  integrity sha512-bjqH2cX/O33jXT/UmReo2pM7DIJREPMnarixbQ57DOOzzFaI6D2+IcwaJQaJpv0M1E9TIhPCYVxrkcityLjlqA==
 
 "@types/ping@^0.2.0":
-  version "0.2.0"
-  resolved "https://registry.yarnpkg.com/@types/ping/-/ping-0.2.0.tgz#b97db062444e964ea6cb3a727e161cd37708e922"
-  integrity sha512-4DnmDRxd3DyCc5+b26z85l0oeTiJwm9JXr30Em97M+BV5LL0GkRoTRVd3dtzwCznHZaEcCAaJH0eHtGMYmLMUg==
+  version "0.2.1"
+  resolved "https://registry.yarnpkg.com/@types/ping/-/ping-0.2.1.tgz#afa3c04dec6d39815ef8e37c2c2ea4c2b994af07"
+  integrity sha512-f9wEZ6YG5wZJB1Z6qve7nAJ7UPhV7O/Z9ZzqC7mHwOyFx39unMyaexOjEapK9dwNtz5SRv3Eln00QmgK3SQwjQ==
 
 "@types/sanitize-filename@^1.6.3":
   version "1.6.3"
@@ -406,9 +406,9 @@ debug@2, debug@^2.2.0, debug@^2.6.9:
     ms "2.0.0"
 
 debug@^4.1.0, debug@^4.1.1:
-  version "4.3.1"
-  resolved "https://registry.yarnpkg.com/debug/-/debug-4.3.1.tgz#f0d229c505e0c6d8c49ac553d1b13dc183f6b2ee"
-  integrity sha512-doEwdvm4PCeK4K3RQN2ZC2BYUBaxwLARCqZmMjtF8a51J2Rb0xpVloFRnCODwqjpwnAoao4pelN8l3RJdv3gRQ==
+  version "4.3.2"
+  resolved "https://registry.yarnpkg.com/debug/-/debug-4.3.2.tgz#f0a49c18ac8779e31d4a0c6029dfb76873c7428b"
+  integrity sha512-mOp8wKcvj7XxC78zLgw/ZA+6TSgkoE2C/ienthhRD298T7UNwAg9diBpLRxC0mOezLl4B0xV7M0cCO6P/O0Xhw==
   dependencies:
     ms "2.1.2"
 
@@ -487,10 +487,10 @@ electron@*:
     "@types/node" "^14.6.2"
     extract-zip "^1.0.3"
 
-electron@beta:
-  version "14.0.0-beta.11"
-  resolved "https://registry.yarnpkg.com/electron/-/electron-14.0.0-beta.11.tgz#9483efc4d98331b264729dde2335bec97ac1497d"
-  integrity sha512-1ESp7ahbNtWSuhMy4lbW+Wh4Wt5WLt7iznjrHS5H4eriqo0fyYg0j8zFd5nA1nMi27/89maBISnsksg7ih1urg==
+electron@^14.0.0-beta.13:
+  version "14.0.0-beta.13"
+  resolved "https://registry.yarnpkg.com/electron/-/electron-14.0.0-beta.13.tgz#36d50cdd3d745e5b9700100949b1f15f1d2bb953"
+  integrity sha512-3kW81XOCm3a1OMZg2pENHJINjn5ko5fhY9zqsjHJ5tgP7sU4SCCXeNKJVGcSrdMP5tD2jat9qSe8VdvheN6MKA==
   dependencies:
     "@electron/get" "^1.0.1"
     "@types/node" "^14.6.2"
