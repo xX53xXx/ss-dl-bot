@@ -478,19 +478,10 @@ electron-storage@^1.0.7:
     mkdirp "^0.5.1"
     rimraf "^2.5.4"
 
-electron@*:
-  version "13.1.2"
-  resolved "https://registry.yarnpkg.com/electron/-/electron-13.1.2.tgz#8c9abf9015766c9cbc16f10c99282d00d6ae1b90"
-  integrity sha512-aNT9t+LgdQaZ7FgN36pN7MjSEoj+EWc2T9yuOqBApbmR4HavGRadSz7u9N2Erw2ojdIXtei2RVIAvVm8mbDZ0g==
-  dependencies:
-    "@electron/get" "^1.0.1"
-    "@types/node" "^14.6.2"
-    extract-zip "^1.0.3"
-
-electron@^14.0.0-beta.13:
-  version "14.0.0-beta.13"
-  resolved "https://registry.yarnpkg.com/electron/-/electron-14.0.0-beta.13.tgz#36d50cdd3d745e5b9700100949b1f15f1d2bb953"
-  integrity sha512-3kW81XOCm3a1OMZg2pENHJINjn5ko5fhY9zqsjHJ5tgP7sU4SCCXeNKJVGcSrdMP5tD2jat9qSe8VdvheN6MKA==
+electron@*, electron@^14.2.4:
+  version "14.2.4"
+  resolved "https://registry.yarnpkg.com/electron/-/electron-14.2.4.tgz#243c71a16a85a4f70086d003b3437cd30b541da0"
+  integrity sha512-uskCIp+fpohqVYtM2Q28rbXLqGjZ6sWYylXcX6N+K8jR8kR2eHuDMIkO8DzWrTsqA6t4UNAzn+bJnA3VfIIjQw==
   dependencies:
     "@electron/get" "^1.0.1"
     "@types/node" "^14.6.2"
