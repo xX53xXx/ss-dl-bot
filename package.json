@@ -11,7 +11,7 @@
     "@types/filenamify": "^2.0.2",
     "@types/string-similarity": "^4.0.0",
     "@types/utf8": "^3.0.0",
-    "axios": "^0.21.1",
+    "axios": "^0.21.2",
     "command-exists": "^1.2.9",
     "date-fns": "^2.22.1",
     "electron": "^14.0.0-beta.13",
